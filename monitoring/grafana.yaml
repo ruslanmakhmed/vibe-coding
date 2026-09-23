@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: shortlink
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: false
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: shortlink
+        orgId: 1
+        folder: Shortlink
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+  dashboard.json: |
+    {"title":"Shortlink","uid":"shortlink-overview","schemaVersion":39,"version":1,"refresh":"15s","panels":[{"id":1,"title":"Redirects per second","type":"timeseries","gridPos":{"h":8,"w":12,"x":0,"y":0},"targets":[{"expr":"rate(shortlink_redirects_succeeded_total[5m])","legendFormat":"successful"}]},{"id":2,"title":"Missing code ratio","type":"timeseries","gridPos":{"h":8,"w":12,"x":12,"y":0},"targets":[{"expr":"sum(rate(shortlink_redirects_missing_total[5m])) / clamp_min(sum(rate(shortlink_redirects_missing_total[5m])) + sum(rate(shortlink_redirects_succeeded_total[5m])), 1e-9)","legendFormat":"missing fraction"}]},{"id":3,"title":"App container memory (bytes)","type":"timeseries","gridPos":{"h":8,"w":24,"x":0,"y":8},"targets":[{"expr":"shortlink_container_memory_bytes","legendFormat":"{{instance}}"}]}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: shortlink
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: grafana}
+  template:
+    metadata:
+      labels: {app: grafana}
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          ports: [{name: web, containerPort: 3000}]
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: shortlink-secret, key: GRAFANA_PASSWORD}}
+          volumeMounts:
+            - {name: provisioning, mountPath: /etc/grafana/provisioning/datasources/datasource.yml, subPath: datasource.yml}
+            - {name: provisioning, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml, subPath: dashboards.yml}
+            - {name: provisioning, mountPath: /var/lib/grafana/dashboards/shortlink.json, subPath: dashboard.json}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+      volumes:
+        - name: provisioning
+          configMap: {name: grafana-provisioning}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: shortlink
+spec:
+  selector: {app: grafana}
+  ports: [{name: web, port: 3000, targetPort: 3000}]
