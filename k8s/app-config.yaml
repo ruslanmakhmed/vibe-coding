@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shortlink-config
+  namespace: shortlink
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: shortlink
+  DB_USER: shortlink
+  LOG_LEVEL: INFO
