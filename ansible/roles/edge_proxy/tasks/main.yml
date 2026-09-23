@@ -1,0 +1,92 @@
+---
+- name: Install edge packages
+  ansible.builtin.apt:
+    name: [nginx, ufw]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create service account
+  ansible.builtin.user:
+    name: "{{ shortlink_service_user }}"
+    shell: /bin/bash
+    create_home: true
+    state: present
+
+- name: Install service account public key
+  ansible.posix.authorized_key:
+    user: "{{ shortlink_service_user }}"
+    key: "{{ shortlink_service_public_key }}"
+    state: present
+
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: PasswordAuthentication no
+    validate: 'sshd -t -f %s'
+  notify: Restart ssh
+
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: PermitRootLogin no
+    validate: 'sshd -t -f %s'
+  notify: Restart ssh
+
+- name: Allow SSH from configured network
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ shortlink_allowed_ssh_cidr }}"
+
+- name: Allow HTTP traffic
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+    from_ip: "{{ shortlink_allowed_http_cidr }}"
+
+- name: Enable firewall with default deny
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Install nginx proxy configuration
+  ansible.builtin.template:
+    src: shortlink.conf.j2
+    dest: /etc/nginx/sites-available/shortlink
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Enable nginx proxy configuration
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/shortlink
+    dest: /etc/nginx/sites-enabled/shortlink
+    state: link
+  notify: Restart nginx
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart nginx
+
+- name: Install node healthcheck script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/healthcheck.sh"
+    dest: /usr/local/bin/shortlink-healthcheck
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Schedule healthcheck
+  ansible.builtin.cron:
+    name: shortlink node health
+    minute: "{{ shortlink_healthcheck_minute }}"
+    job: "SHORTLINK_READY_URL=http://{{ shortlink_backend_host }}:{{ shortlink_backend_port }}/readyz /usr/local/bin/shortlink-healthcheck"

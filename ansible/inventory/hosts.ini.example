@@ -1,0 +1,12 @@
+[edge_a]
+edge_a ansible_host=192.0.2.10 ansible_user=admin shortlink_backend_port=8080
+
+[edge_b]
+edge_b ansible_host=192.0.2.11 ansible_user=admin shortlink_backend_port=8081
+
+[web_nodes:children]
+edge_a
+edge_b
+
+[web_nodes:vars]
+ansible_python_interpreter=/usr/bin/python3

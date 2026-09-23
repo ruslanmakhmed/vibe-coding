@@ -1,0 +1,14 @@
+---
+- name: Validate nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  listen: Restart nginx
+
+- name: Restart nginx
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+- name: Restart ssh
+  ansible.builtin.service:
+    name: ssh
+    state: restarted

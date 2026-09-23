@@ -1,0 +1,8 @@
+---
+shortlink_service_user: deploy
+shortlink_service_public_key: "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+shortlink_backend_host: 127.0.0.1
+shortlink_backend_port: 8080
+shortlink_healthcheck_minute: "*/5"
+shortlink_allowed_ssh_cidr: 192.0.2.0/24
+shortlink_allowed_http_cidr: 0.0.0.0/0

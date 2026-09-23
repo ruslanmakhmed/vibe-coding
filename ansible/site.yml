@@ -1,0 +1,6 @@
+---
+- name: Prepare edge nodes for shortlink
+  hosts: web_nodes
+  become: true
+  roles:
+    - edge_proxy
