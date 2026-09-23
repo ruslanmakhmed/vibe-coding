@@ -1,0 +1,12 @@
+.git
+.env
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+*.md
+ansible
+k8s
+monitoring
+scripts
+ci
